@@ -2,7 +2,12 @@ __pycache__/
 *.pyc
 *.egg-info/
 .pytest_cache/
-output/
 .venv/
-.idea/ 
 .idea/
+
+# generated reports
+output/
+samples/output/
+
+# real attendance reports are personal data - never commit them
+samples/input/*.pdf
