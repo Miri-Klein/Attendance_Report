@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "attendance-report"
+version = "1.0.0"
+description = "Generate a logically valid variation of a scanned attendance report, keeping its layout"
+requires-python = ">=3.10"
+dependencies = [
+    "pdfplumber>=0.10",
+    "reportlab>=4.0",
+    "python-bidi>=0.4",
+    "pytesseract>=0.3.10",
+    "pdf2image>=1.16",
+    "opencv-python-headless>=4.8",
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+attendance-report = "attendance_report.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+attendance_report = ["generation/fonts/*.ttf"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "tests"]
