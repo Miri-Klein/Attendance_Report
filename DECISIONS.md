@@ -1,99 +1,100 @@
-# יומן החלטות
+# Decision Log
 
-לכל החלטה: מה היו האפשרויות, מה נבחר ולמה.
+🇬🇧 **English** · 🇮🇱 [עברית](DECISIONS.he.md)
 
-## נתונים ומודל
+For every decision: the options, the choice, and why.
 
-| החלטה | אפשרויות | נבחר | למה |
+## Data and model
+
+| Decision | Options | Chosen | Why |
 |---|---|---|---|
-| איך לשמור שעות | מחרוזת `"08:00"` / `datetime.time` / מספר דקות | `time` לשעות שעון, `int` דקות למשכים (הפסקה), `Decimal` לשעות מודפסות (6.50) | מפרסרים פעם אחת ומפרמטים פעם אחת. `Decimal` ולא `float`, כדי שסכומים יצאו מדויקים |
-| שינוי אובייקטים | dataclass רגיל / `frozen` | `frozen` | הטרנספורמציה חייבת לבנות אובייקט חדש, אז אי אפשר לקלקל את המקור בטעות. יש על זה טסט |
-| שדות שקיימים רק בסוג אחד | שתי מחלקות שורה / מחלקה אחת עם ברירות מחדל | מחלקה אחת: `break_minutes`, `location`, `buckets` (A) ו-`note` (B). בסיכום: `bonus`, `travel` (A) ו-`hourly_rate`, `total_pay` (B) | שאר הקוד עובד על טיפוס אחד |
-| ימים בלי עבודה בסוג B | לדלג / לשמור | לשמור כשורה בלי שעות | הם חלק מהמבנה של B (כל ימי החודש מודפסים) |
-| יום בשבוע | לשמור את הטקסט / לגזור מהתאריך | לגזור מהתאריך בזמן ההדפסה | ככה הם לא יכולים לסתור זה את זה. בפרסור הטקסט המודפס משמש רק לבדיקה ולתיקון תאריך ש-OCR שיבש |
+| How to store hours | string `"08:00"` / `datetime.time` / number of minutes | `time` for clock times, `int` minutes for durations (break), `Decimal` for printed hours (6.50) | Parse once, format once. `Decimal`, not `float`, so sums come out exact |
+| Changing objects | plain dataclass / `frozen` | `frozen` | The transformation must build a new object, so the source cannot be damaged by mistake. There is a test for it |
+| Fields that exist in only one type | two row classes / one class with defaults | One class: `break_minutes`, `location`, `buckets` (A) and `note` (B). In the summary: `bonus`, `travel` (A) and `hourly_rate`, `total_pay` (B) | The rest of the code works on a single type |
+| Days without work in type B | skip / keep | Keep as a row without hours | They are part of type B's structure (every day of the month is printed) |
+| Day of the week | store the text / derive from the date | Derive from the date when printing | This way they can never contradict each other. During parsing, the printed text is only used to check, and to repair a date that OCR garbled |
 
 ## OCR
 
-| החלטה | אפשרויות | נבחר | למה |
+| Decision | Options | Chosen | Why |
 |---|---|---|---|
-| רזולוציה | 150 dpi כמו הסריקה / 300 | 300 | הסריקות הן JPEG ב-150 dpi. בהגדלה Tesseract מקבל אותיות גדולות יותר וקורא טוב יותר |
-| שפה | `heb` / `heb+eng` | `heb+eng` | נבדק: `heb` לבד שיבש כמעט כל מספר |
-| מצב עמוד (psm) | psm 4 / 6 / 11, אחד לכולם או לפי העמוד | לפי מה שרואים בעמוד: עמוד עם רשת מלאה psm 4, אחר psm 11 | נבדק על ארבע הסריקות. בסריקת A של פברואר 2023, psm 4 קרא 13 מתוך 15 תאריכים כ-`3`, ו-psm 11 קרא את כולם. אבל psm 11 שבר את תיבת השכר של B (המחיר לשעה נקרא `5`). ההחלטה לפי העמוד ולא לפי סוג הדו"ח, כך שה-OCR לא צריך לדעת מה הסוג. psm 11 לא שומר את חלוקת השורות של Tesseract, וזה בסדר, כי הפרסרים עובדים לפי מיקום המילים |
-| קריאה שנייה למילים חשודות | לקבל את מה שיצא / לתקן אחר כך בפרסר / לקרוא שוב את המילה לבד | לקרוא שוב: מילה באותיות לטיניות עם מודל העברית בלבד, ומספר בתיבה רחבה מדי בשבילו עם מודל האנגלית בלבד | המודל המשולב טוב בספרות, אבל לפעמים הופך עברית ללטינית (`כח אדם` → `ND DTN`, `שבת` → `naw`) ובולע מספרים ליד עברית ו-₪ (`45.50` → `0`). קריאה של המילה לבד, עם המודל המתאים, תיקנה את כל המקרים. בדו"ח שכולו עברית, מילה לטינית היא תמיד טעות |
-| קווי טבלה | להשאיר / למחוק תמיד / למחוק רק בטבלה עם רשת מלאה | למחוק רק כשמזוהים לפחות 5 קווים אנכיים ארוכים (B: 7, A: 3) | ב-B הקווים צמודים לספרות ו-OCR קרא שורות שלמות כזבל. ב-A מחיקה "אכלה" חלקים מהספרות. הזיהוי אוטומטי, ולכן שלב ה-OCR לא צריך לדעת מה סוג הדו"ח |
-| OCR לכל תא בנפרד | לחתוך כל תא מהרשת / עמוד שלם | עמוד שלם | נבדק: לפי תאים היה איטי יותר (20 שניות) וגרוע יותר, כי תאים ריקים הפיקו רעש כמו `So` ו-`--%` |
-| ביטחון | להתעלם / לשמור לכל מילה | לשמור (`conf`) | משמש להכרעה כשיש שתי אפשרויות תיקון שוות, ולסינון רעש בהערות ובשם |
-| כמה עמודים | עמוד ראשון / לסרב לקובץ ארוך / כל העמודים | כל העמודים. כל מילה זוכרת את מספר העמוד שלה, ושורות נבנות בתוך עמוד בלבד | קריאה של עמוד ראשון בלבד מאבדת שורות בשקט. בהתחלה הקוד סירב לקבצים ארוכים, ועכשיו הוא קורא אותם |
+| Resolution | 150 dpi like the scan / 300 | 300 | The scans are 150 dpi JPEGs. Upscaled, Tesseract gets larger glyphs and reads better |
+| Language | `heb` / `heb+eng` | `heb+eng` | Tested: `heb` alone garbled almost every number |
+| Page segmentation mode (psm) | psm 4 / 6 / 11; one for everything or per page | Decided by what the page looks like: a page with a full grid gets psm 4, any other page psm 11 | Tested on all four scans. On the Feb 2023 type A scan, psm 4 read 13 of 15 dates as `3`, while psm 11 read all of them. But psm 11 broke the type B pay box (hourly rate read as `5`). The choice depends on the page, not on the report type, so the OCR doesn't need to know the type. psm 11 loses Tesseract's own line grouping, which is fine because the parsers work from word positions |
+| A second look at suspicious words | accept the result / fix later in the parser / read the word again on its own | Read again: a word in Latin letters with the Hebrew model only; a number in a box far too wide for it with the English model only | The combined model is good at digits but sometimes turns Hebrew into Latin letters (`כח אדם` → `ND DTN`, `שבת` → `naw`) and swallows numbers next to Hebrew and ₪ (`45.50` → `0`). Reading the word alone with the right model fixed every case. In an all-Hebrew report, a Latin word is always a mistake |
+| Table lines | keep / always erase / erase only on a full-grid table | Erase only when at least 5 long vertical lines are detected (B: 7, A: 3) | In B the lines touch the digits, and OCR read whole rows as garbage. In A, erasing "ate" parts of the digits. The detection is automatic, so the OCR station doesn't need to know the report type |
+| OCR each cell separately | crop each grid cell / whole page | Whole page | Tested: per cell was slower (20 seconds) and worse, because empty cells produced noise like `So` and `--%` |
+| Confidence | ignore / keep per word | Keep (`conf`) | Used to break ties between two equally good repairs, and to filter noise in notes and in the name |
+| How many pages | first page / refuse long files / all pages | All pages. Every word remembers its page number, and lines are only built within a page | Reading only the first page silently loses rows. At first the code refused long files; now it reads them |
 
-## פרסור ותיקון שגיאות OCR
+## Parsing and repairing OCR errors
 
-העיקרון: הדו"ח מכיל מידע כפול, ובו משתמשים כדי לתקן. כל תיקון מדווח כאזהרה ולא מוסתר.
+The principle: the report contains redundant information, and that is what the repairs use. Every repair is reported as a warning, never hidden.
 
-| החלטה | אפשרויות | נבחר | למה |
+| Decision | Options | Chosen | Why |
 |---|---|---|---|
-| שיוך ערך לעמודה | לפי סדר המילים / לפי מיקום אופקי | מיקום: כל מילה הולכת לעמודה שמרכז הכותרת שלה הכי קרוב | בשורת הסה"כ של A אין ערכים בכניסה וביציאה. קריאה לפי סדר הייתה מזיזה כל ערך עמודה אחת |
-| כותרת עמודה ש-OCR לא קרא | להיכשל / לשערך | לשערך מהשכנות (הסדר ידוע). מספיק שחצי מהכותרות זוהו | בפועל: `שבת` נקרא `naw`, `כניסה` נקרא `non` |
-| התאמת כותרת | מקורבת בלבד / קודם מדויקת ואז מקורבת | קודם מדויקת | `שעות` (סה"כ שעות) דומה ב-86% ל-`שעת` (שעת כניסה), שזו עמודה אחרת |
-| כותרת בשתי שורות (B) | שורה אחת / חלון של שתי שורות | חלון של שתי שורות, רק אם בשתיהן יש כותרות | אחרת שורת שם החברה ב-A "נבלעה" בכותרת |
-| כניסה/יציאה/סה"כ שלא מתאימים | להאמין / לתקן | יציאה פחות כניסה פחות הפסקה צריך לצאת סה"כ. אם לא, מתקנים את הערך שדורש הכי מעט שינוי בספרות, מבין התיקונים שנותנים שורה סבירה. בשוויון, את הערך שה-OCR היה הכי פחות בטוח בו | בסריקת B: `3:02` במקום `8:02` (פעמיים), `41:01` במקום `11:01`, `8:04` במקום `8:01`, `11:04` במקום `11:01`, ו-`8:02` שנקרא כשתי מילים. כולם תוקנו נכון |
-| תאריך שבור בסוג B | לזרוק / לתקן לפי יום בשבוע / לפי מיקום | לפי מיקום: כל ימי החודש מודפסים בגובה קבוע, אז מתאימים קו ישר בין הגובה ליום על התאריכים שנקראו טוב, וממקמים כל שורה לפיו. **לכל עמוד בנפרד**, כי לכל עמוד שוליים משלו. עמוד עם תאריך קריא אחד משתמש במרווח בין השורות של עמוד אחר. עמוד בלי אף תאריך קריא הוא שגיאה ברורה, לא ניחוש | 10 תאריכים שובשו בסריקה (`5/1123`, `13`, `29/14/23` ועוד). כולם מוקמו נכון |
-| חודש קצר בסוג B | לעצור בסוף החודש / לשמור את השורות הבאות | לשמור: הכרטיס המודפס תמיד 31 שורות, אז שורות עד 31 שייכות לטבלה, גם מהחודש הבא. הכלל מחייב שאין יום **עבודה** מחוץ לחודש | ספטמבר 2022 נגמר בשורה מוצללת `1/10/22`. ה-OCR קרא אותה `225%`, אז היא לא יכולה לאשר את התאריך של עצמה. המיקום מספיק |
-| ערך בתיבת סיכום | להשתמש בכללי הניקוי של הטבלה / להסיר `|` בקצה | להסיר `|` בקצה של ערך בתיבה | בתיבה הערך צמוד לקו הגבול, וה-OCR מדביק אותו כ-`|0`. בטבלה `|` יכול להיות 1 שנקרא לא נכון (`|5:00`), ולכן הניקוי הכללי הופך אותו ל-1, אבל בקצה ערך בתיבה זה תמיד הגבול. בלי זה `|0` הפך ל-`10` |
-| שם דבוק לתווית | לחפש את התווית כמילה נפרדת / לפצל ב-`:` | לפצל: `העובד:ישראל` → תווית + `ישראל` | בקריאה חוזרת של הפלט, התווית והשם יצאו מילה אחת. גם סריקה יכולה לעשות את זה |
-| תאריך שבור בסוג A | לפי מיקום / לפי יום בשבוע | התאריך הבא אחרי השורה הקודמת שמתאים ליום בשבוע המודפס | ב-A מופיעים רק ימי עבודה, אז מיקום לא אומר איזה יום |
-| סה"כ שבור בסוג A | להאמין / להצליב | הסה"כ מודפס פעמיים (עמודת סה"כ וסכום עמודות האחוזים). אם עותק אחד לא סביר לוקחים את השני | |
-| מקום שלא נקרא | להשאיר / להחליף | להחליף בערך הנפוץ במסמך, עם אזהרה | `גליליון` נקרא `jr"`. מקומות הם רשימה קצרה של אתרים |
-| שעות חודשיות ב-B | להאמין / להצליב | שעות כפול מחיר צריך לצאת בערך השכר. אם לא, שעות = שכר חלקי מחיר | `63.02` נקרא `2` |
-| שם עובד | מה שה-OCR קרא / לסנן | רק מילים בעברית עם ביטחון גבוה. אחרת השם ריק | בשתי הסריקות השם מושחר, ו-OCR הפיק ממנו רעש |
-| זיהוי סוג | מילה אחת / סט אותות | סט אותות לכל סוג, הסוג עם הכי הרבה אותות מנצח, מתחת ל-50% דוחים | מילה אחת שהשתבשה לא הופכת את ההחלטה |
+| Assigning a value to a column | by word order / by horizontal position | Position: each word goes to the column whose header centre is closest | In type A's totals row there are no values under entry and exit. Reading in order would shift every value by one column |
+| A column title OCR didn't read | fail / estimate | Estimate from the neighbours (the order is known). It's enough that half the titles were recognised | In practice: `שבת` was read as `naw`, `כניסה` as `non` |
+| Matching a title | fuzzy only / exact first, then fuzzy | Exact first | `שעות` (total hours) is 86% similar to `שעת` (entry time), which is a different column |
+| Two-line titles (B) | one line / a two-line window | A two-line window, only if both lines contain titles | Otherwise the company-name line in A got "swallowed" into the header |
+| Entry/exit/total that don't agree | trust / repair | exit − entry − break must equal the total. If not, repair the value that needs the fewest digit changes, among repairs that give a plausible row. On a tie, the value OCR was least confident about | In the type B scan: `3:02` for `8:02` (twice), `41:01` for `11:01`, `8:04` for `8:01`, `11:04` for `11:01`, and `8:02` read as two words. All repaired correctly |
+| A broken date in type B | drop / repair by weekday / by position | By position: every day of the month is printed at a fixed height, so a straight line is fitted between height and day on the dates that were read well, and every line is placed by it. **Per page**, since each page has its own margins. A page with a single readable date borrows the line spacing of another page. A page with no readable date at all is a clear error, not a guess | 10 dates were garbled in the scan (`5/1123`, `13`, `29/14/23` and more). All placed correctly |
+| A short month in type B | stop at the month's end / keep the following lines | Keep: the printed card always has 31 lines, so lines up to 31 belong to the table, even from the next month. A rule makes sure no **worked** day falls outside the month | September 2022 ends with a shaded `1/10/22` line. OCR read it as `225%`, so it can't confirm its own date. The position is enough |
+| A value in a summary box | use the table's cleaning rules / strip `\|` at the edge | Strip a `\|` at the edge of a box value | In a box the value touches the border, and OCR glues it on as `\|0`. In the table a `\|` may be a misread 1 (`\|5:00`), so the general cleaning turns it into 1, but at the edge of a box value it is always the border. Without this, `\|0` became `10` |
+| A name glued to its label | look for the label as a separate word / split at `:` | Split: `העובד:ישראל` → label + `ישראל` | When reading the output back, the label and the name came out as one word. A scan can do the same |
+| A broken date in type A | by position / by weekday | The next date after the previous row that matches the printed weekday | Type A lists only work days, so position doesn't tell which day it is |
+| A broken total in type A | trust / cross-check | The total is printed twice (the total column and the sum of the rate columns). If one copy is implausible, take the other | |
+| An unreadable location | keep / replace | Replace with the most frequent value in the document, with a warning | `גליליון` was read as `jr"`. Locations are a short list of sites |
+| Monthly hours in B | trust / cross-check | hours × rate should be about the pay. If not, hours = pay ÷ rate | `63.02` was read as `2` |
+| Employee name | whatever OCR read / filter | Only high-confidence Hebrew words. Otherwise the name is empty | In both scans the name is blacked out, and OCR produced noise from it |
+| Type detection | one word / a set of signals | A set of signals per type; the type with the most signals wins; below 50% the page is rejected | One garbled word can't flip the decision |
 
-## טרנספורמציה
+## Transformation
 
-| החלטה | אפשרויות | נבחר | למה |
+| Decision | Options | Chosen | Why |
 |---|---|---|---|
-| כללים | סט אחד / סט לכל סוג | סט לכל סוג, שמוחזק בתוך האסטרטגיה | ב-A השעות עגולות (08:00) והמשמרת 6.5 שעות. ב-B אלה החתמות שעון (8:01) והמשמרת כ-3 שעות. כלל אחד היה נותן ב-B שעות עגולות לא אמינות, או נכשל על מינימום של 3 שעות ביום |
-| בסיס לשעות העבודה | יציאה פחות כניסה / הסה"כ המודפס | הסה"כ המודפס, ואם חסר אז החישוב | הסה"כ נושא את הגיוון מיום ליום |
-| יום חג בסוג A | לוח חגים / להסיק מהמקור | להסיק מהמקור: יום חול ששולם כולו ב-150% נשאר כזה | 17/10/2022 (שמחת תורה) שולם ב-150%. לא צריך לוח חגים, ונשמרת ההחלטה של המעסיק |
-| חישוב שכר בסוג B | סכום שורות מעוגלות / סכום דקות | סכום דקות, עיגול פעם אחת | נבדק מול המקור: 3,781 דקות = 63.0167 שעות. 63.0167 × 32.35 = 2,038.59, בדיוק כמו שמודפס. עם 63.02 המעוגל היה יוצא 2,038.70 |
-| סיכומים בסוג A | סכום דקות / סכום שורות מעוגלות | סכום השורות כפי שמודפסות | ככה מי שמחבר את העמודה על נייר מקבל בדיוק את הסה"כ |
-| אקראיות | `random` גלובלי / seed לכל שורה | `Random(f"{seed}:{date}")` לכל שורה | דטרמיניסטי, ושינוי בשורה אחת לא משנה את השאר |
-| פיצול לפי סוג | `if type ==` / Strategy | Strategy. בוחרים פעם אחת לפני הלולאה | כל סוג נבדק לבד, ותיקון ב-B לא נוגע ב-A |
-| מתי בודקים | רק בטסטים / גם בזמן ריצה | אחרי כל טרנספורמציה. הפרה עוצרת את הקובץ | הפרה היא באג בכללים, ועדיף לא לכתוב קובץ שגוי |
-| ימי עבודה בסוג B | להעתיק מהמקור / לספור מהשורות | לספור מהשורות | בכרטיס של ספטמבר 2022 כתוב 20 ימי עבודה, אבל מופיעים 24 ימים עם שעות (24 × 3.50 = 84.00, בדיוק השעות המודפסות). המקור עצמו לא עקבי, והפלט עקבי. הקוד מדווח על זה כהערה |
+| Rules | one set / a set per type | A set per type, held inside the strategy | In A the hours are round (08:00) and a shift is 6.5 hours. In B they are clock punches (8:01) and a shift is about 3 hours. One rule would give B unbelievable round hours, or fail on a 3-hour daily minimum |
+| Baseline for worked time | exit − entry / the printed total | The printed total; if missing, the computed value | The total carries the day-to-day variety |
+| A holiday in type A | holiday calendar / infer from the source | Infer from the source: a weekday paid entirely at 150% stays that way | 17/10/2022 (Simchat Torah) was paid at 150%. No holiday calendar needed, and the employer's own decision is kept |
+| Pay in type B | sum of rounded rows / sum of minutes | Sum of minutes, rounded once | Checked against the source: 3,781 minutes = 63.0167 hours. 63.0167 × 32.35 = 2,038.59, exactly as printed. With the rounded 63.02 it would be 2,038.70 |
+| Totals in type A | sum of minutes / sum of rounded rows as printed | Sum of the rows as printed | This way, someone adding up the column on paper gets exactly the total |
+| Randomness | global `random` / a seed per row | `Random(f"{seed}:{date}")` per row | Deterministic, and changing one row doesn't change the others |
+| Splitting by type | `if type ==` / Strategy | Strategy, chosen once before the loop | Each type is tested on its own, and a fix in B doesn't touch A |
+| When to check | only in tests / also at runtime | After every transformation. A violation stops that file | A violation is a bug in the rules, and it's better not to write a wrong file |
+| Work days in type B | copy from the source / count from the rows | Count from the rows | The September 2022 card says 20 work days, but lists 24 days with hours (24 × 3.50 = 84.00, exactly the printed hours). The source itself is inconsistent; the output is consistent. The code reports it as a note |
 
-## שגיאות
+## Errors
 
-| החלטה | אפשרויות | נבחר | למה |
+| Decision | Options | Chosen | Why |
 |---|---|---|---|
-| איפה מוגדרות | בקובץ של כל תחנה / קובץ אחד | `domain/exceptions.py`: בסיס `AttendanceReportError` עם מחלקה לכל תחנה (`ExtractionError`, `UnknownReportType`, `ParseError`, `EmptyReportError`, `MissingRateError`) | מי שקורא את הקוד רואה במקום אחד מה יכול להשתבש. אפשר לתפוס תחנה אחת, או את כולן יחד |
-| באג מול קלט בעייתי | `Exception` אחד לכל / שתי משפחות | `InternalError` (למשל `InvariantViolation`) **לא** יורש מ-`AttendanceReportError` | ה-CLI מבדיל: קובץ בעייתי מקבל ✗ וקוד יציאה 1, והתוכנית ממשיכה לקובץ הבא. באג מקבל "INTERNAL ERROR" וקוד יציאה 2, עם traceback ב-`-v`. קודם הכל נתפס כ-`Exception` אחד |
+| Where they are defined | in each station's file / one file | `domain/exceptions.py`: a base `AttendanceReportError` with one class per station (`ExtractionError`, `UnknownReportType`, `ParseError`, `EmptyReportError`, `MissingRateError`) | Anyone reading the code sees in one place what can go wrong. You can catch one station, or all of them at once |
+| Bug vs. bad input | one `Exception` for everything / two families | `InternalError` (e.g. `InvariantViolation`) does **not** inherit from `AttendanceReportError` | The CLI tells them apart: a bad file gets ✗ and exit code 1, and the program moves on to the next file. A bug gets "INTERNAL ERROR" and exit code 2, with a traceback under `-v`. Before, everything was caught as one `Exception` |
 
-## בדיקות
+## Tests
 
-| החלטה | אפשרויות | נבחר | למה |
+| Decision | Options | Chosen | Why |
 |---|---|---|---|
-| על מה בודקים | הסריקות האמיתיות / fixtures | fixtures **סינתטיים**: שני דוחות מומצאים, ששורטטו בפריסה של המקור, "נסרקו" (תמונת JPEG ב-150 dpi, כמו הסריקות), ועברו OCR אמיתי פעם אחת (`tools/build_fixtures.py`). נשמרו המילים והדו"ח האמיתי | הסריקות של אדם אחר, ולכן גם פלט ה-OCR שלהן לא יכול להיות במאגר. בלי fixtures, אצל מי שמוריד את המאגר רצו 16 בדיקות ו-178 דולגו. עכשיו 205 רצות, גם בלי Tesseract, תוך שנייה |
-| שגיאות OCR ב-fixtures | רק מה שיצא / להוסיף בכוונה | להוסיף בכוונה שגיאות שנמצאו בסריקות האמיתיות (`3:02`, `43:12`, תאריך `13`, מקום `jr"`). הן רשומות בתוך קובץ ה-JSON | ככה גם קוד התיקון נבדק אצל כולם. הבדיקה דורשת שחזור **מדויק** של הדו"ח המומצא |
-| הסריקות האמיתיות | למחוק את הבדיקות / לדלג כשחסר | לדלג עם הסבר. מי שיש לו אותן מריץ גם את הבדיקות מול כל ערך שנקרא בעין | |
+| What to test on | the real scans / fixtures | **Synthetic** fixtures: two invented reports, drawn in the source layout, "scanned" (a 150 dpi JPEG image, like the scans) and run through real OCR once (`tools/build_fixtures.py`). The words and the true report are saved | The scans belong to another person, so their OCR output can't be in the repository either. Without fixtures, someone downloading the repository ran 16 tests and 178 were skipped. Now 205 run, even without Tesseract, in about a second |
+| OCR errors in the fixtures | only what came out / add some on purpose | Add, on purpose, errors found in the real scans (`3:02`, `43:12`, a date read as `13`, location `jr"`). They are listed inside the JSON file | This way the repair code is tested for everyone too. The test requires rebuilding the invented report **exactly** |
+| The real scans | delete those tests / skip when missing | Skip with an explanation. Whoever has them also runs the tests against every value read by eye | |
 
-## גנרוט
+## Generation
 
-| החלטה | אפשרויות | נבחר | למה |
+| Decision | Options | Chosen | Why |
 |---|---|---|---|
-| איך מייצרים PDF "כמו המקור" | הסריקה כתבנית: למחוק תאים ולכתוב מעליהם / לבנות מאפס | לבנות מאפס ב-ReportLab, לפי מידות שנמדדו מהסריקות (`layouts.py`) | תבנית הייתה שומרת על מראה הסריקה (כתב יד, השחרה), אבל הגנרוט היה צריך את התמונה המקורית ואת מיקומי התאים מה-OCR. זה בדיוק מה שדף העבודה אומר להימנע ממנו: הגנרוט מקבל רק את אובייקט הדו"ח. בנוסף, הפלט נקי וקריא, ויש לו שכבת טקסט |
-| מדידת הפריסה | בעין / מדידה | קווים ומפרידים נמדדו ב-OpenCV, מיקומי טקסט מתיבות ה-OCR, גודל גופן מרוחב התאריך (51.2 נקודות ל-`02/10/2022` נותן 10.2pt) | טסט מריץ OCR על הפלט ומוודא שהכותרות במקום של הסריקה |
-| עברית ב-PDF | ReportLab כמו שהוא / bidi | `python-bidi` עם כיוון בסיס RTL, ואז ציור מיושר | ReportLab לא מכיר RTL. כיוון בסיס RTL נדרש כדי ש-`32.35 ₪` יוצג כמו במקור |
-| גופן | Arial / Liberation Sans | Liberation Sans רגיל ומודגש, מצורף לפרויקט | Arial לא חופשי להפצה. Liberation תואם לו במידות, תומך בעברית, ורישיון OFL |
-| שם מושחר | להשאיר ריק / לצייר השחרה | לצייר פס שחור במקום השם כשהשם לא ידוע | ככה הפלט נראה כמו המקור, ולא מומצא שם |
-| רינדור לפי סוג | Renderer לכל סוג / Renderer לכל פורמט + פריסה כנתונים | לכל פורמט (PDF, HTML). הפריסה, כולל סגנון תאריך ושעה ועיצוב מספרים בתיבות, היא נתונים | קוד הציור אחד, וסוג חדש הוא עוד הגדרת פריסה |
-| אימות הפלט | בעין / קריאה חוזרת | הפרסר קורא את ה-PDF שנוצר וצריך לקבל בדיוק את הדו"ח אחרי השינוי | אם הפרסר שבנוי לפורמט המקור קורא את הפלט, המבנה זהה |
+| How to produce a PDF "like the source" | the scan as a template: erase cells and write over them / build from scratch | Build from scratch in ReportLab, using measurements taken from the scans (`layouts.py`) | A template would keep the look of the scan (handwriting, blacked-out name), but generation would need the original image and the cell positions from OCR. That is exactly what the worksheet says to avoid: generation receives only the report object. Also, the output is clean and readable, and has a text layer |
+| Measuring the layout | by eye / measurement | Lines and separators measured with OpenCV, text positions from the OCR boxes, font size from the date width (51.2 points for `02/10/2022` gives 10.2pt) | A test runs OCR on the output and checks that the titles are where they are in the scan |
+| Hebrew in a PDF | ReportLab as is / bidi | `python-bidi` with an RTL base direction, then aligned drawing | ReportLab doesn't know RTL. The RTL base direction is needed for `32.35 ₪` to show as in the source |
+| Font | Arial / Liberation Sans | Liberation Sans regular and bold, bundled with the project | Arial can't be freely redistributed. Liberation matches its metrics, supports Hebrew, and is OFL-licensed |
+| A blacked-out name | leave empty / draw a black bar | Draw a black bar in place of the name when the name is unknown | This way the output looks like the source, and no name is invented |
+| Rendering per type | a renderer per type / a renderer per format + layout as data | Per format (PDF, HTML). The layout, including date and time style and number formatting in the boxes, is data | One drawing code; a new type is just another layout definition |
+| Verifying the output | by eye / reading it back | The parser reads the generated PDF and must get exactly the varied report | If the parser built for the source format can read the output, the structure is the same |
 
-## הנחות ופערים ידועים
+## Assumptions and known gaps
 
-* **הסריקות האמיתיות לא במאגר.** הן דוחות נוכחות של אדם אחר, ולכן `samples/input/*.pdf` נמצא ב-`.gitignore`. במקומן יש במאגר דוחות מומצאים (`samples/synthetic/`) ו-fixtures.
-
-* **הפלט נקי, לא "סרוק".** אין כתב יד בשוליים, רעש סריקה או הטיה קלה. המבנה, המיקומים, הגופנים וההצללות כמו במקור.
-* **כללי שעות נוספות** (8 שעות ב-100%, 2 ב-125%) הם פישוט לצורך התרגיל. בדוגמה אף יום לא מגיע אליהם.
-* **בונוס ונסיעות ב-A** לא נקראים ב-OCR (התיבה צפופה), ולכן נלקחים כ-0 עם אזהרה. בשתי הסריקות הם אכן 0.
-* **הפלט תמיד עמוד אחד.** דו"ח ארוך יותר נקרא במלואו, אבל מצויר בעמוד אחד. בכל הדוגמאות 31 שורות לכל היותר נכנסות בעמוד.
-* **הסריקות מוזזות קצת זו מזו** (B של ספטמבר 2022 מוזז ימינה ולמעלה ביחס ל-B של ינואר 2023). הפלט מצויר תמיד במיקום שנמדד על הסריקה הראשונה של כל סוג.
+* **The real scans are not in the repository.** They are attendance reports of another person, so `samples/input/*.pdf` is in `.gitignore`. Instead, the repository has invented reports (`samples/synthetic/`) and fixtures.
+* **The output is clean, not "scanned".** No handwriting in the margins, no scan noise, no slight tilt. Structure, positions, fonts and shading are as in the source.
+* **Overtime rules** (8 hours at 100%, 2 at 125%) are a simplification for the exercise. No day in the real samples reaches them.
+* **Bonus and travel in A** are not read by OCR (the box is cramped), so they are taken as 0 with a warning. In both scans they really are 0.
+* **The output is always one page.** A longer report is read in full but drawn on one page. In all the samples, at most 31 lines fit on a page.
+* **The scans are slightly shifted relative to each other** (the Sept 2022 B card is shifted right and up compared with the Jan 2023 one). The output is always drawn at the position measured on the first scan of each type.

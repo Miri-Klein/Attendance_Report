@@ -1,124 +1,126 @@
-# 🕒 מחולל וריאציות לדו"ח נוכחות
+# 🕒 Attendance Report Variation Generator
+
+🇬🇧 **English** · 🇮🇱 [עברית](README.he.md)
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![OCR](https://img.shields.io/badge/OCR-Tesseract%20%7C%20Hebrew-green)
 ![Tests](https://img.shields.io/badge/tests-219-brightgreen)
 ![Output](https://img.shields.io/badge/output-PDF%20%7C%20HTML-orange)
 
-> מקבל **דו"ח נוכחות סרוק**, קורא אותו, משנה את שעות העבודה כך שהדו"ח עדיין הגיוני לגמרי,
-> ומפיק PDF חדש **באותו מבנה בדיוק** כמו המקור.
+> Takes a **scanned attendance report**, reads it, changes the working hours so that
+> the report still makes complete sense, and produces a new PDF with **exactly the same layout** as the original.
 
 ---
 
-## ✨ מה הוא עושה
+## ✨ What it does
 
 <table>
 <tr>
 <td width="50%">
 
-**נכנס:** סריקה (תמונה בלבד, בלי טקסט) של דו"ח נוכחות בעברית, עם רעש, קווי טבלה, כתב יד בשוליים ושם מושחר.
+**In:** a scan (image only, no text) of a Hebrew attendance report, with noise, table lines, handwriting in the margins and a blacked-out name.
 
 </td>
 <td width="50%">
 
-**יוצא:** PDF ו-HTML חדשים באותה פריסה, עם שעות אחרות, וכל הסיכומים (שעות, אחוזים, שכר) מחושבים מחדש ומתאימים לשורות.
+**Out:** a new PDF and HTML in the same layout, with different hours, and every total (hours, rate columns, pay) recomputed to match the rows.
 
 </td>
 </tr>
 </table>
 
-- 🔍 **מזהה לבד** איזה סוג דו"ח זה (A או B).
-- 🧠 **מתקן שגיאות OCR** בעזרת המידע הכפול שבדו"ח עצמו.
-- 🎲 **דטרמיניסטי:** אותו קובץ ואותו `seed` נותנים תמיד אותו פלט, עד הבייט.
-- ✅ **כל וריאציה נבדקת** מול רשימת כללים. אם כלל נשבר, לא נכתב קובץ.
-- 🔒 **קובץ המקור לא משתנה אף פעם.**
+- 🔍 **Detects on its own** which report type it is (A or B).
+- 🧠 **Repairs OCR errors** using the redundancy inside the report itself.
+- 🎲 **Deterministic:** the same file with the same `seed` always gives the same output, byte for byte.
+- ✅ **Every variation is checked** against a list of rules. If a rule breaks, no file is written.
+- 🔒 **The source file is never modified.**
 
 ---
 
-## 📄 שני סוגי הדוחות
+## 📄 The two report types
 
-| | 🅰️ סוג A: דו"ח חברת כוח אדם | 🅱️ סוג B: כרטיס עובד חודשי |
+| | 🅰️ Type A: staffing agency report | 🅱️ Type B: monthly employee card |
 |---|---|---|
-| **שורות** | רק ימים שעבדו בהם | תמיד 31 שורות: כל ימי החודש (סופ"ש ריקים, שבת מוצללת), ובחודש קצר ממשיכים לימים הראשונים של החודש הבא |
-| **עמודות** | תאריך · יום · מקום · כניסה · יציאה · הפסקה · סה"כ · 100% · 125% · 150% · שבת | תאריך · יום בשבוע · כניסה · יציאה · סה"כ שעות · הערות |
-| **סיכומים** | שורת סה"כ + תיבת סיכום מתחת לטבלה | תיבה מעל הטבלה: ימים, שעות, מחיר לשעה, לתשלום |
-| **פורמט** | `02/10/2022` · `08:00` | `1/1/23` · `8:01` |
-| **אופי השעות** | עגולות (08:00–15:00) | החתמות שעון (8:01–11:05) |
+| **Rows** | Only the days worked | Always 31 lines: every day of the month (weekends empty, Shabbat shaded); a short month continues into the first days of the next month |
+| **Columns** | date · day · location · entry · exit · break · total · 100% · 125% · 150% · Shabbat | date · weekday · entry · exit · total hours · notes |
+| **Totals** | A totals row + a summary box below the table | A box above the table: days, hours, hourly rate, amount to pay |
+| **Format** | `02/10/2022` · `08:00` | `1/1/23` · `8:01` |
+| **Kind of hours** | Round (08:00–15:00) | Clock punches (8:01–11:05) |
 
 ---
 
-## ⚙️ איך זה עובד
+## ⚙️ How it works
 
-הקוד בנוי כ**צינור של שלבים**. כל שלב מכיר רק את מה שנכנס אליו ואת מה שיוצא ממנו.
+The code is a **pipeline of stations**. Each station only knows what comes in and what goes out.
 
 ```mermaid
 flowchart LR
-    A[📄 PDF סרוק] --> B[OCR<br/>Tesseract + עברית]
-    B --> C{זיהוי סוג}
+    A[📄 Scanned PDF] --> B[OCR<br/>Tesseract + Hebrew]
+    B --> C{Classify}
     C -->|A| D1[TypeAParser]
     C -->|B| D2[TypeBParser]
     D1 --> E[(AttendanceReport)]
     D2 --> E
-    E --> F[טרנספורמציה<br/>Strategy לכל סוג]
-    F --> G[(AttendanceReport<br/>חדש)]
+    E --> F[Transformation<br/>one Strategy per type]
+    F --> G[(new<br/>AttendanceReport)]
     G --> H1[📑 PDF]
     G --> H2[🌐 HTML]
 ```
 
-`AttendanceReport` הוא **החוזה**: מהנקודה הזו אף שלב לא יודע מאיזה קובץ או מאיזה OCR הנתונים הגיעו. הוא מוגדר כ-`frozen dataclass`, כך שהטרנספורמציה חייבת לבנות אובייקט חדש, והמקור לא יכול להשתנות בטעות.
+`AttendanceReport` is **the contract**: from this point on, no station knows which file or which OCR the data came from. It is a `frozen dataclass`, so the transformation has to build a new object and the source cannot be changed by mistake.
 
-### 🧩 תבניות עיצוב
+### 🧩 Design patterns
 
-| שכבה | מחלקת בסיס | יורשים | מפצלים לפי | תבנית |
+| Layer | Base class | Subclasses | Split by | Pattern |
 |---|---|---|---|---|
-| פרסור | `BaseParser` | `TypeAParser`, `TypeBParser` | סוג הדו"ח | **Template Method** |
-| טרנספורמציה | `BaseTransformationStrategy` | `TypeA…`, `TypeB…Strategy` | סוג הדו"ח | **Strategy** |
-| גנרוט | `BaseRenderer` | `PdfRenderer`, `HtmlRenderer` | פורמט הפלט | ירושה פשוטה |
+| Parsing | `BaseParser` | `TypeAParser`, `TypeBParser` | report type | **Template Method** |
+| Transformation | `BaseTransformationStrategy` | `TypeA…`, `TypeB…Strategy` | report type | **Strategy** |
+| Generation | `BaseRenderer` | `PdfRenderer`, `HtmlRenderer` | output format | plain inheritance |
 
-**הוספת סוג C?** מחלקת פרסר, מחלקת אסטרטגיה והגדרת פריסה (נתונים בלבד), ושורה אחת בכל רישום. לא נוגעים בקוד של A או B.
+**Adding a type C?** A parser class, a strategy class and a page layout (data only), plus one line in each registry. The code of A and B is not touched.
 
 ---
 
-## 🧠 תיקון שגיאות OCR
+## 🧠 Repairing OCR errors
 
-OCR על סריקה אף פעם לא נקי. אבל בכל דו"ח יש **מידע כפול**, ובו הקוד משתמש:
+OCR on a scan is never clean. But every report contains **redundant information**, and the code uses it:
 
-| השגיאה | איך זה מתגלה | איך זה מתוקן |
+| The error | How it is detected | How it is fixed |
 |---|---|---|
-| `3:02` במקום `8:02` | יציאה פחות כניסה לא שווה לסה"כ | הקוד בוחר את התיקון שדורש הכי מעט שינוי בספרות, מבין התיקונים שנותנים שורה סבירה |
-| `41:01` במקום `11:01` | זו לא שעה חוקית | השעה מחושבת מחדש מכניסה + סה"כ |
-| `29/14/23`, `5/1123` | תאריך לא חוקי | בסוג B כל הימים מודפסים בגובה קבוע, אז התאריך נקבע לפי **המיקום של השורה בעמוד** (לכל עמוד בנפרד) |
-| `כח אדם` נקרא `ND DTN`, `שבת` נקרא `naw` | מילה באותיות לטיניות, בדו"ח שכולו עברית | המילה נקראת שוב לבד, עם מודל העברית בלבד |
-| `45.50` נקרא `0` | מספר בתיבה רחבה מדי בשבילו | המספר נקרא שוב לבד, עם מודל האנגלית (הטוב בספרות) |
-| `01/02/2023` נקרא `3` | תאריך לא חוקי | בסוג A: התאריך הבא שמתאים ליום בשבוע המודפס |
-| כותרת עמודה שלא זוהתה | חסרה עמודה בשורת הכותרות | המיקום שלה מחושב מהעמודות השכנות |
-| שעות חודשיות `2` במקום `63.02` | שעות × מחיר לשעה לא קרוב לשכר | שעות = שכר ÷ מחיר לשעה |
+| `3:02` instead of `8:02` | exit − entry ≠ total | Picks the fix that changes the fewest digits, among fixes that give a plausible row |
+| `41:01` instead of `11:01` | Not a valid time | Recomputed from entry + total |
+| `29/14/23`, `5/1123` | Not a valid date | In type B every day is printed at a fixed height, so the date comes from **the line's position on the page** (per page) |
+| `כח אדם` read as `ND DTN`, `שבת` as `naw` | Latin letters in an all-Hebrew report | The word is read again on its own, with the Hebrew model only |
+| `45.50` read as `0` | A number in a box far too wide for it | The number is read again on its own, with the English model (better at digits) |
+| `01/02/2023` read as `3` | Not a valid date | In type A: the next date that matches the printed weekday |
+| An unrecognised column title | A column is missing from the header row | Its position is computed from the neighbouring columns |
+| Monthly hours `2` instead of `63.02` | hours × rate is nowhere near the pay | hours = pay ÷ rate |
 
-כל תיקון **מדווח כאזהרה** ולא מוסתר. נבדק על ארבע סריקות אמיתיות: כל השורות נקראות נכון, והשכר שמחושב מהשעות שנקראו יוצא בדיוק כמו שמודפס.
+Every fix is **reported as a warning**, never hidden. Tested on four real scans: every row is read correctly, and the pay computed from the hours that were read comes out exactly as printed.
 
 ---
 
-## 🚀 התקנה
+## 🚀 Installation
 
-דרוש **Python 3.10 ומעלה**.
+Requires **Python 3.10 or newer**.
 
 ```bash
 pip install -e ".[dev]"
 ```
 
-ב-Windows, אם `pip` לא מזוהה: `py -m pip install -e ".[dev]"`
+On Windows, if `pip` is not recognised: `py -m pip install -e ".[dev]"`
 
-### תוכנות מערכת (בשביל OCR)
+### System tools (for OCR)
 
-| מערכת | התקנה |
+| System | Install |
 |---|---|
 | 🐧 Ubuntu / Debian | `sudo apt install tesseract-ocr tesseract-ocr-heb poppler-utils` |
 | 🍎 macOS | `brew install tesseract tesseract-lang poppler` |
-| 🪟 Windows | [Tesseract (UB Mannheim)](https://github.com/UB-Mannheim/tesseract/wiki) עם **Hebrew**, ו-[Poppler](https://github.com/oschwartz10612/poppler-windows/releases). את שתי תיקיות ה-`bin` מוסיפים ל-PATH |
+| 🪟 Windows | [Tesseract (UB Mannheim)](https://github.com/UB-Mannheim/tesseract/wiki) with **Hebrew**, and [Poppler](https://github.com/oschwartz10612/poppler-windows/releases). Add both `bin` folders to PATH |
 
-בדיקה: `tesseract --list-langs` צריך להציג `heb`.
+Check: `tesseract --list-langs` should list `heb`.
 
-### 🐳 או עם Docker, בלי להתקין כלום
+### 🐳 Or with Docker, nothing to install
 
 ```bash
 docker build -t attendance-report .
@@ -128,120 +130,120 @@ docker run --rm -v "$(pwd)/samples/input:/in" -v "$(pwd)/output:/out" \
 
 ---
 
-## ▶️ שימוש
+## ▶️ Usage
 
 ```bash
 attendance-report path/to/report.pdf -o output/
 ```
 
-| אפשרות | משמעות |
+| Option | Meaning |
 |---|---|
-| `-o DIR` | תיקיית הפלט (ברירת מחדל: `output`) |
-| `--seed N` | וריאציה אחרת. אותו seed נותן אותו פלט |
-| `--pdf-only` / `--html-only` | פורמט פלט אחד בלבד |
-| `--extract auto\|text\|ocr` | איך לקרוא את הקובץ (ברירת מחדל: אוטומטי) |
-| `-v` | לוג מפורט: מה זוהה ואילו תיקונים בוצעו |
+| `-o DIR` | Output folder (default: `output`) |
+| `--seed N` | A different variation. The same seed gives the same output |
+| `--pdf-only` / `--html-only` | Only one output format |
+| `--extract auto\|text\|ocr` | How to read the file (default: automatic) |
+| `-v` | Detailed log: what was detected and which repairs were made |
 
-**דוגמת פלט:**
+**Example output:**
 ```
 ✓ report.pdf: TYPE_B, 31 rows -> output/report_variant.pdf, output/report_variant.html
 ✗ invoice.pdf: cannot tell the report type, scores={...}
 ```
 
-אפשר לנסות מיד על הדוחות המומצאים שבמאגר:
+Try it right away on the invented reports included in the repository:
 ```bash
 attendance-report samples/synthetic/type_a_synthetic_scan.pdf samples/synthetic/type_b_synthetic_scan.pdf
 ```
 
-**קודי יציאה:** `0` הכל תקין · `1` קובץ קלט בעייתי (מודפס ✗ והתוכנית ממשיכה לקובץ הבא) · `2` באג בקוד.
-**דוחות של כמה עמודים** נקראים במלואם. עמוד שמתחיל שוב בשורת הכותרות מצטרף לטבלה.
+**Exit codes:** `0` all good · `1` a problem with an input file (✗ is printed and the program moves on to the next file) · `2` a bug in the code.
+**Multi-page reports** are read in full. A page that starts with the column titles again is joined to the table.
 
 ---
 
-## 🎛️ כללי השינוי
+## 🎛️ Variation rules
 
-| | 🅰️ סוג A | 🅱️ סוג B |
+| | 🅰️ Type A | 🅱️ Type B |
 |---|---|---|
-| הזזת כניסה | ±30 דק', בצעדים של 5 | ±8 דק', בצעדים של דקה |
-| שינוי זמן העבודה | ±30 דק' | ±10 דק' |
-| טווח יומי | 3–12 שעות | 2–12 שעות |
-| מחושב מחדש | סה"כ, 100/125/150/שבת, שורת סה"כ, תיבת סיכום | סה"כ, ימי עבודה, שעות חודשיות, לתשלום |
-| נשמר | תאריכים, מקום, הפסקה, בונוס, נסיעות, **סוג התעריף של כל יום** (חג נשאר 150%) | תאריכים, ימים ריקים, הערות, מחיר לשעה |
+| Entry shift | ±30 min, in steps of 5 | ±8 min, in steps of 1 |
+| Change in worked time | ±30 min | ±10 min |
+| Daily range | 3–12 hours | 2–12 hours |
+| Recomputed | total, 100/125/150/Shabbat, totals row, summary box | total, work days, monthly hours, amount to pay |
+| Kept | dates, location, break, bonus, travel, **each day's pay category** (a holiday stays at 150%) | dates, empty days, notes, hourly rate |
 
-כל הערכים נמצאים בקובץ אחד: [`transformation/rules.py`](src/attendance_report/transformation/rules.py).
+All the numbers are in one file: [`transformation/rules.py`](src/attendance_report/transformation/rules.py).
 
 ---
 
-## 🧪 בדיקות
+## 🧪 Tests
 
 ```bash
 pytest
 ```
 
-**219 בדיקות.** רובן רצות אצל כל אחד, גם **בלי Tesseract ובלי הדוחות הפרטיים** (205 בדיקות, תוך שנייה):
+**219 tests.** Most of them run for anyone, even **without Tesseract and without the private reports** (205 tests, in about a second):
 
-- 🧪 **דוחות מומצאים כ-fixtures:** שני דוחות עם חברה, עובד ושעות מומצאים, ששורטטו באותו מבנה, "נסרקו", ועברו OCR אמיתי פעם אחת. התוצאה שמורה ב-`tests/fixtures/`, יחד עם שגיאות OCR שהוכנסו בכוונה כמו שנמצאו בסריקות (`3:02` במקום `8:02`, תאריך שנקרא `13`...). הפרסר צריך לשחזר מהם את הדו"ח **בדיוק**.
-- 🔁 **קריאה חוזרת:** הפרסר קורא את ה-PDF שנוצר ומקבל בדיוק את הדו"ח אחרי השינוי.
-- 📄 **שני עמודים:** דו"ח שמפוצל לשני עמודים נותן את אותה תוצאה כמו עמוד אחד.
-- 🎲 כל הכללים נבדקים על 150 ערכי seed לכל סוג.
-- 🚦 ה-CLI מבדיל בין קובץ בעייתי לבין באג.
-- 🔒 המקור לא משתנה, ושתי הרצות נותנות קבצים זהים.
+- 🧪 **Invented reports as fixtures:** two reports with an invented company, employee and hours, drawn in the same layout, "scanned", and run through real OCR once. The result is saved in `tests/fixtures/`, together with OCR errors added on purpose, like the ones found in the real scans (`3:02` for `8:02`, a date read as `13`...). The parser has to rebuild the report from them **exactly**.
+- 🔁 **Read back:** the parser reads the generated PDF and gets exactly the varied report.
+- 📄 **Two pages:** a report split across two pages gives the same result as one page.
+- 🎲 Every rule is checked on 150 seeds per type.
+- 🚦 The CLI tells a bad input file apart from a bug.
+- 🔒 The source is never modified, and two runs produce identical files.
 
-> **📌 הסריקות האמיתיות** הן של אדם אחר, ולכן **לא כלולות במאגר** (`samples/input/*.pdf` ב-`.gitignore`).
-> מי שיש לו אותן שם אותן ב-`samples/input/` בשמות `type_a_scan.pdf`, `type_b_scan.pdf`,
-> `type_a_scan_2.pdf`, `type_b_scan_2.pdf`, ואז רצות גם הבדיקות שמשוות מול כל ערך בסריקה.
+> **📌 The real scans** belong to another person, so they are **not in the repository** (`samples/input/*.pdf` is in `.gitignore`).
+> Whoever has them can put them in `samples/input/` as `type_a_scan.pdf`, `type_b_scan.pdf`,
+> `type_a_scan_2.pdf`, `type_b_scan_2.pdf`; then the tests that check every value against the scan run too.
 >
-> **בניית ה-fixtures מחדש** (צריך Tesseract): `python -m tools.build_fixtures`
+> **Rebuilding the fixtures** (needs Tesseract): `python -m tools.build_fixtures`
 
 ---
 
-## 📁 מבנה הפרויקט
+## 📁 Project structure
 
 ```
 src/attendance_report/
-├── domain/              # החוזה: מודל הנתונים והכללים
+├── domain/              # the contract: data model and rules
 │   ├── models.py        #   AttendanceRow, AttendanceReport, ReportSummary
-│   ├── validation.py    #   אינווריאנטים
-│   ├── exceptions.py    #   מחלקת שגיאה לכל תחנה, ובסיס משותף
-│   └── calendar_he.py   #   שמות ימים וחודשים בעברית
-├── parsing/             # מ-PDF לאובייקט
-│   ├── extraction.py    #   שכבת טקסט או OCR, כל העמודים
-│   ├── ocr.py           #   Tesseract + מחיקת קווי טבלה + קריאה שנייה
-│   ├── classifier.py    #   זיהוי סוג
+│   ├── validation.py    #   invariants
+│   ├── exceptions.py    #   one error class per station, shared base
+│   └── calendar_he.py   #   Hebrew day and month names
+├── parsing/             # PDF -> object
+│   ├── extraction.py    #   text layer or OCR, all pages
+│   ├── ocr.py           #   Tesseract + grid-line erasing + second look
+│   ├── classifier.py    #   report type detection
 │   ├── base_parser.py   #   Template Method
 │   ├── type_a_parser.py
 │   ├── type_b_parser.py
-│   ├── repair.py        #   תיקון שגיאות OCR
-│   └── factory.py       #   סוג -> פרסר
-├── transformation/      # משנים שעות
-│   ├── rules.py         #   כל המספרים, לכל סוג
+│   ├── repair.py        #   OCR error repair
+│   └── factory.py       #   type -> parser
+├── transformation/      # changing the hours
+│   ├── rules.py         #   every number, per type
 │   ├── strategies.py    #   Strategy
-│   └── service.py       #   הלולאה + בדיקת כללים
-├── generation/          # מאובייקט לקובץ
-│   ├── layouts.py       #   מידות שנמדדו מהסריקות
-│   ├── pdf_renderer.py  #   ReportLab + עברית מימין לשמאל
+│   └── service.py       #   the loop + rule checking
+├── generation/          # object -> file
+│   ├── layouts.py       #   geometry measured from the scans
+│   ├── pdf_renderer.py  #   ReportLab + right-to-left Hebrew
 │   └── html_renderer.py
-├── pipeline.py          # סדר התחנות ("תוכן העניינים")
-└── cli.py               # הטרמינל: ארגומנטים, ✓/✗, קודי יציאה
+├── pipeline.py          # the order of the stations ("table of contents")
+└── cli.py               # the terminal: arguments, ✓/✗, exit codes
 tests/
-├── fixtures/            # פלט OCR של הדוחות המומצאים + הדו"ח האמיתי שלהם
+├── fixtures/            # OCR output of the invented reports + their true content
 └── test_*.py
 tools/
-└── build_fixtures.py    # בונה את ה-fixtures (פעם אחת)
+└── build_fixtures.py    # builds the fixtures (run once)
 samples/
-├── synthetic/           # הדוחות המומצאים: PDF דיגיטלי + "סריקה"
-└── input/               # הסריקות האמיתיות - לא במאגר
+├── synthetic/           # the invented reports: digital PDF + "scan"
+└── input/               # the real scans - not in the repository
 ```
 
 ---
 
-## 📚 עוד
+## 📚 More
 
-- **[DECISIONS.md](DECISIONS.md):** יומן ההחלטות. לכל החלטה: מה היו האפשרויות, מה נבחר ולמה.
-- **מגבלות ידועות:** הפלט הוא PDF נקי, בלי רעש סריקה וכתב יד, ותמיד עמוד אחד (גם אם המקור היה ארוך יותר).
+- **[DECISIONS.md](DECISIONS.md):** the decision log. For every decision: the options, the choice, and why. (Hebrew: [DECISIONS.he.md](DECISIONS.he.md))
+- **Known limitations:** the output is a clean PDF, without scan noise or handwriting, and always a single page (even if the source was longer).
 
 <div align="center">
 
-נבנה ב-Python · Tesseract · OpenCV · ReportLab · pdfplumber
+Built with Python · Tesseract · OpenCV · ReportLab · pdfplumber
 
 </div>
