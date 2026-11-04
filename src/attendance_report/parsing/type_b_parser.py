@@ -1,13 +1,15 @@
 """Type B (employee card, "כרטיס עובד לחודש"): one line for *every* day of the
-month (weekends empty, Shabbat shaded), entry/exit/total/notes, and a box
-above the table with days, monthly hours, hourly rate and pay."""
+month (weekends empty, Shabbat shaded; a short month continues with empty
+lines of the next month), entry/exit/total/notes, and a box above the table
+with days, monthly hours, hourly rate and pay."""
 from __future__ import annotations
 
 import calendar
 from collections import Counter
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
+from ..domain.exceptions import ParseError
 from ..domain.models import AttendanceRow, HourBuckets, ReportSummary, ReportType
 from .base_parser import BaseParser, BodyLine, Cell, Cells, Column, hebrew_words, numbers_in
 from .cleaning import parse_date, parse_decimal
@@ -17,6 +19,7 @@ from .repair import reconcile
 # words that identify each line of the box above the table
 BOX_LABELS = (("עבודה", "days"), ("חודשיות", "hours"), ("לשעה", "rate"), ("לתשלום", "pay"))
 NOTE_MIN_CONF = 60   # shaded/empty cells produce low-confidence Hebrew-looking noise
+FORM_LINES = 31      # the printed card always has 31 day lines
 
 
 class TypeBParser(BaseParser):
@@ -34,38 +37,55 @@ class TypeBParser(BaseParser):
         """Every calendar day has a line, at a fixed vertical pitch. So the date
         of a line follows from its *position*: fit day = a + b*y on the lines
         whose date OCR read correctly, then place every line (including ones
-        with an unreadable date, like '13' or '29/14/23') into its day."""
+        with an unreadable date, like '13' or '29/14/23') into its day.
+
+        * The fit is done per page (each page has its own top margin).
+        * The printed form always has 31 lines, so a short month continues
+          with lines of the next month (Sept 2022 ends with a shaded
+          '1/10/22', which OCR reads as '225%'). Lines up to 31 are kept, so
+          the output has the same lines as the source; validation makes sure
+          no *worked* day falls outside the month.
+        """
         dated = [(bl, parse_date(bl.cells["date"].text)) for bl in body]
         months = Counter((d.year, d.month) for _, d in dated if d)
         if not months:
             warnings.append("no readable dates")
             return [], None, [bl.line for bl in body]
         year, month = months.most_common(1)[0][0]
+        start = date(year, month, 1)
         n_days = calendar.monthrange(year, month)[1]
-        a, b = _fit_day_position([(bl.y, d.day) for bl, d in dated
-                                  if d and (d.year, d.month) == (year, month)])
 
-        per_day: dict[int, list[BodyLine]] = {}
+        def slot_of(d: date) -> int:          # 1 = first of the month, 31 = 1/10 in September
+            return (d - start).days + 1
+
+        fits = _fit_pages([(bl.page, bl.y, slot_of(d)) for bl, d in dated
+                           if d and 1 <= slot_of(d) <= n_days + 7])
+
+        per_slot: dict[int, list[BodyLine]] = {}
         below: list[Line] = []
+        last_slot = n_days
         for bl, d in dated:
-            day = round(a + b * bl.y)
-            if day > n_days:
+            a, b = fits[bl.page]
+            slot = round(a + b * bl.y)
+            if slot < 1:
+                continue
+            if slot > FORM_LINES:                # below the printed table
                 below.append(bl.line)
                 continue
-            if day < 1:
-                continue
+            last_slot = max(last_slot, slot)     # a line past the month end is still a table line
+            where = start + timedelta(days=slot - 1)
             if d is None and bl.cells["date"].text:
                 warnings.append(f"unreadable date '{bl.cells['date'].text}' placed on "
-                                f"{date(year, month, day):%d/%m/%Y} by its position")
-            elif d is not None and d != date(year, month, day):
+                                f"{where:%d/%m/%Y} by its position")
+            elif d is not None and d != where:
                 warnings.append(f"date read as {d:%d/%m/%Y} but its position says "
-                                f"{date(year, month, day):%d/%m/%Y}; position wins")
-            per_day.setdefault(day, []).append(bl)
+                                f"{where:%d/%m/%Y}; position wins")
+            per_slot.setdefault(slot, []).append(bl)
 
         rows = []
-        for day in range(1, n_days + 1):
-            cells = _merge_cells(per_day.get(day, []), [c.key for c in self.columns])
-            rows.append(self._parse_row(date(year, month, day), cells, warnings))
+        for slot in range(1, last_slot + 1):
+            cells = _merge_cells(per_slot.get(slot, []), [c.key for c in self.columns])
+            rows.append(self._parse_row(start + timedelta(days=slot - 1), cells, warnings))
         return rows, None, below
 
     def _parse_row(self, work_date: date, cells: Cells, warnings: list[str]) -> AttendanceRow:
@@ -106,22 +126,51 @@ class TypeBParser(BaseParser):
     def _parse_metadata(self, above, warnings):
         for line in above:
             words = list(line.words)
-            texts = [w.text.strip(":'\"") for w in words]
-            if "העובד" in texts:
-                value = [w.text for w in words[texts.index("העובד") + 1:]
-                         if w.conf >= NOTE_MIN_CONF and hebrew_words(w.text)]
-                if value:
-                    return (), " ".join(value), ""
+            label = next((i for i, w in enumerate(words) if w.text.startswith("העובד")), None)
+            if label is None:
+                continue
+            # the label and the name can come out glued: 'העובד:ישראל'
+            glued = words[label].text.partition(":")[2].strip("'\" ")
+            value = ([glued] if glued and words[label].conf >= NOTE_MIN_CONF else []) + \
+                    [w.text for w in words[label + 1:] if w.conf >= NOTE_MIN_CONF and hebrew_words(w.text)]
+            if value:
+                return (), " ".join(value), ""
         warnings.append("employee name not readable (redacted in the scan?)")
         return (), "", ""
+
+
+def _fit_pages(points: list[tuple[int, float, int]]) -> dict[int, tuple[float, float]]:
+    """(page, y, day) -> {page: (a, b)} with day = a + b*y on each page.
+
+    A page with a single readable date borrows the pitch (b) of another page;
+    a page with none cannot be placed and is an error, not a guess."""
+    pages = sorted({p for p, _, _ in points})
+    fits: dict[int, tuple[float, float]] = {}
+    for page in pages:
+        pts = [(y, d) for p, y, d in points if p == page]
+        if len(pts) >= 2:
+            fits[page] = _fit_day_position(pts)
+    if not fits:
+        raise ParseError("need at least two readable dates on a page to place the rows")
+    pitch = next(iter(fits.values()))[1]
+    for page in pages:
+        if page not in fits:
+            y, d = next((y, d) for p, y, d in points if p == page)
+            fits[page] = (d - pitch * y, pitch)
+    return _DefaultFits(fits)
+
+
+class _DefaultFits(dict):
+    """Lines on a page without any readable date: report clearly."""
+
+    def __missing__(self, page):
+        raise ParseError(f"page {page + 1}: no readable date to place its rows")
 
 
 def _fit_day_position(points: list[tuple[float, int]]) -> tuple[float, float]:
     """Least squares day = a + b*y, refitted once without outliers (> 0.4 day)."""
     def fit(pts):
         n = len(pts)
-        if n < 2:
-            raise ValueError("need at least two readable dates to place the rows")
         my = sum(y for y, _ in pts) / n
         md = sum(d for _, d in pts) / n
         b = sum((y - my) * (d - md) for y, d in pts) / sum((y - my) ** 2 for y, _ in pts)

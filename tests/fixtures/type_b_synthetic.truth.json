@@ -1,0 +1,332 @@
+{
+ "report_type": "TYPE_B",
+ "header_lines": [],
+ "employee_name": "ישראל ישראלי",
+ "rows": [
+  {
+   "date": "2024-02-01",
+   "entry": "09:02",
+   "exit": "13:05",
+   "total": "4.05",
+   "break": 0,
+   "location": "",
+   "buckets": null,
+   "note": ""
+  },
+  {
+   "date": "2024-02-02",
+   "entry": null,
+   "exit": null,
+   "total": "0.00",
+   "break": 0,
+   "location": "",
+   "buckets": null,
+   "note": ""
+  },
+  {
+   "date": "2024-02-03",
+   "entry": null,
+   "exit": null,
+   "total": "0.00",
+   "break": 0,
+   "location": "",
+   "buckets": null,
+   "note": ""
+  },
+  {
+   "date": "2024-02-04",
+   "entry": "08:58",
+   "exit": "13:01",
+   "total": "4.05",
+   "break": 0,
+   "location": "",
+   "buckets": null,
+   "note": ""
+  },
+  {
+   "date": "2024-02-05",
+   "entry": "09:04",
+   "exit": "12:57",
+   "total": "3.88",
+   "break": 0,
+   "location": "",
+   "buckets": null,
+   "note": ""
+  },
+  {
+   "date": "2024-02-06",
+   "entry": "09:01",
+   "exit": "13:00",
+   "total": "3.98",
+   "break": 0,
+   "location": "",
+   "buckets": null,
+   "note": ""
+  },
+  {
+   "date": "2024-02-07",
+   "entry": "09:00",
+   "exit": "13:03",
+   "total": "4.05",
+   "break": 0,
+   "location": "",
+   "buckets": null,
+   "note": ""
+  },
+  {
+   "date": "2024-02-08",
+   "entry": "08:59",
+   "exit": "12:58",
+   "total": "3.98",
+   "break": 0,
+   "location": "",
+   "buckets": null,
+   "note": ""
+  },
+  {
+   "date": "2024-02-09",
+   "entry": null,
+   "exit": null,
+   "total": "0.00",
+   "break": 0,
+   "location": "",
+   "buckets": null,
+   "note": ""
+  },
+  {
+   "date": "2024-02-10",
+   "entry": null,
+   "exit": null,
+   "total": "0.00",
+   "break": 0,
+   "location": "",
+   "buckets": null,
+   "note": ""
+  },
+  {
+   "date": "2024-02-11",
+   "entry": "09:03",
+   "exit": "13:04",
+   "total": "4.02",
+   "break": 0,
+   "location": "",
+   "buckets": null,
+   "note": ""
+  },
+  {
+   "date": "2024-02-12",
+   "entry": "08:07",
+   "exit": "12:06",
+   "total": "3.98",
+   "break": 0,
+   "location": "",
+   "buckets": null,
+   "note": ""
+  },
+  {
+   "date": "2024-02-13",
+   "entry": "09:00",
+   "exit": "13:00",
+   "total": "4.00",
+   "break": 0,
+   "location": "",
+   "buckets": null,
+   "note": ""
+  },
+  {
+   "date": "2024-02-14",
+   "entry": "09:05",
+   "exit": "13:08",
+   "total": "4.05",
+   "break": 0,
+   "location": "",
+   "buckets": null,
+   "note": ""
+  },
+  {
+   "date": "2024-02-15",
+   "entry": "09:01",
+   "exit": "12:59",
+   "total": "3.97",
+   "break": 0,
+   "location": "",
+   "buckets": null,
+   "note": ""
+  },
+  {
+   "date": "2024-02-16",
+   "entry": null,
+   "exit": null,
+   "total": "0.00",
+   "break": 0,
+   "location": "",
+   "buckets": null,
+   "note": ""
+  },
+  {
+   "date": "2024-02-17",
+   "entry": null,
+   "exit": null,
+   "total": "0.00",
+   "break": 0,
+   "location": "",
+   "buckets": null,
+   "note": ""
+  },
+  {
+   "date": "2024-02-18",
+   "entry": "09:02",
+   "exit": "13:01",
+   "total": "3.98",
+   "break": 0,
+   "location": "",
+   "buckets": null,
+   "note": ""
+  },
+  {
+   "date": "2024-02-19",
+   "entry": "08:56",
+   "exit": "12:55",
+   "total": "3.98",
+   "break": 0,
+   "location": "",
+   "buckets": null,
+   "note": ""
+  },
+  {
+   "date": "2024-02-20",
+   "entry": "09:04",
+   "exit": "13:12",
+   "total": "4.13",
+   "break": 0,
+   "location": "",
+   "buckets": null,
+   "note": ""
+  },
+  {
+   "date": "2024-02-21",
+   "entry": "09:00",
+   "exit": "13:02",
+   "total": "4.03",
+   "break": 0,
+   "location": "",
+   "buckets": null,
+   "note": ""
+  },
+  {
+   "date": "2024-02-22",
+   "entry": null,
+   "exit": null,
+   "total": "0.00",
+   "break": 0,
+   "location": "",
+   "buckets": null,
+   "note": "חופשה"
+  },
+  {
+   "date": "2024-02-23",
+   "entry": null,
+   "exit": null,
+   "total": "0.00",
+   "break": 0,
+   "location": "",
+   "buckets": null,
+   "note": ""
+  },
+  {
+   "date": "2024-02-24",
+   "entry": null,
+   "exit": null,
+   "total": "0.00",
+   "break": 0,
+   "location": "",
+   "buckets": null,
+   "note": ""
+  },
+  {
+   "date": "2024-02-25",
+   "entry": "09:01",
+   "exit": "13:00",
+   "total": "3.98",
+   "break": 0,
+   "location": "",
+   "buckets": null,
+   "note": ""
+  },
+  {
+   "date": "2024-02-26",
+   "entry": "09:03",
+   "exit": "13:06",
+   "total": "4.05",
+   "break": 0,
+   "location": "",
+   "buckets": null,
+   "note": ""
+  },
+  {
+   "date": "2024-02-27",
+   "entry": "08:59",
+   "exit": "12:57",
+   "total": "3.97",
+   "break": 0,
+   "location": "",
+   "buckets": null,
+   "note": ""
+  },
+  {
+   "date": "2024-02-28",
+   "entry": "09:00",
+   "exit": "13:01",
+   "total": "4.02",
+   "break": 0,
+   "location": "",
+   "buckets": null,
+   "note": ""
+  },
+  {
+   "date": "2024-02-29",
+   "entry": "09:02",
+   "exit": "13:04",
+   "total": "4.03",
+   "break": 0,
+   "location": "",
+   "buckets": null,
+   "note": ""
+  },
+  {
+   "date": "2024-03-01",
+   "entry": null,
+   "exit": null,
+   "total": "0.00",
+   "break": 0,
+   "location": "",
+   "buckets": null,
+   "note": ""
+  },
+  {
+   "date": "2024-03-02",
+   "entry": null,
+   "exit": null,
+   "total": "0.00",
+   "break": 0,
+   "location": "",
+   "buckets": null,
+   "note": ""
+  }
+ ],
+ "summary": {
+  "days": 20,
+  "break": 0,
+  "total": "80.20",
+  "buckets": [
+   "0.00",
+   "0.00",
+   "0.00",
+   "0.00"
+  ],
+  "bonus": "0",
+  "travel": "0",
+  "rate": "45.50",
+  "pay": "3649.10"
+ }
+}

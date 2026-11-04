@@ -29,9 +29,13 @@ def check_invariants(report: AttendanceReport, limits: Limits = Limits(),
     """``expected_summary``: the totals recomputed from the rows (how they are
     computed differs per report type, so the caller - the strategy - supplies it)."""
     errors: list[str] = []
-    months = {(r.work_date.year, r.work_date.month) for r in report.rows}
-    if len(months) > 1:
-        errors.append(f"rows span more than one month: {sorted(months)}")
+    # empty lines may run into the next month (type B prints 31 lines always),
+    # but every *worked* day must be in the report's month
+    if report.rows:
+        first = report.rows[0].work_date
+        for r in report.rows:
+            if r.has_times and (r.work_date.year, r.work_date.month) != (first.year, first.month):
+                errors.append(f"{r.work_date:%d/%m/%Y}: worked day outside the report month")
 
     dates = [r.work_date for r in report.rows]
     if dates != sorted(dates) or len(set(dates)) != len(dates):

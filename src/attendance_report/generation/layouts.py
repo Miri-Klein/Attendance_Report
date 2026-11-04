@@ -134,8 +134,8 @@ TYPE_A_LAYOUT = PageLayout(
     ),
     boxes=(KeyValueBox(
         x0=418.1, divider=470.9, x1=529.2, top=1.9, after_table=True, row_height=12.875,
-        # the source box prints whole hours for the total (143.00 -> '143')
-        rows=(BoxRow("ימים", "days", style="plain"), BoxRow('סה"כ שעות', "total", style="int"),
+        # trailing zeros dropped: 143.00 -> '143', 110.50 -> '110.5' (both scans)
+        rows=(BoxRow("ימים", "days", style="plain"), BoxRow('סה"כ שעות', "total"),
               BoxRow("שעות 100%", "h100"), BoxRow("שעות 125%", "h125"),
               BoxRow("שעות 150%", "h150"), BoxRow("שבת 150%", "shabbat"),
               BoxRow("בונוס", "bonus"), BoxRow("נסיעות", "travel")),
@@ -149,7 +149,7 @@ B_COLS = (
     ColumnLayout("entry", "שעת\nכניסה", 279.4, 330.0, align="center"),
     ColumnLayout("exit", "\nשעת יציאה", 222.0, 279.4, align="center"),
     ColumnLayout("total", 'סה"כ\nשעות', 170.4, 222.0, align="center"),
-    ColumnLayout("note", "הערות", 119.0, 170.4, align="center"),
+    ColumnLayout("note", "הערות", 119.0, 170.4, pad=2.0),   # right-aligned, long notes spill left
 )
 
 TYPE_B_LAYOUT = PageLayout(

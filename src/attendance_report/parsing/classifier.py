@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from difflib import SequenceMatcher
 
+from ..domain.exceptions import UnknownReportType
 from ..domain.models import ReportType
 from .cleaning import has_hebrew
 
@@ -18,10 +19,6 @@ SIGNALS: dict[ReportType, tuple[str, ...]] = {
 }
 MIN_SCORE = 0.5      # at least half of a type's signals must be present
 FUZZY_RATIO = 0.75
-
-
-class UnknownReportType(ValueError):
-    pass
 
 
 def _present(signal: str, words: set[str]) -> bool:

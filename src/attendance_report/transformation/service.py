@@ -11,6 +11,7 @@ from __future__ import annotations
 import random
 from dataclasses import replace
 
+from ..domain.exceptions import EmptyReportError, InvariantViolation, TransformationError
 from ..domain.models import AttendanceReport, ReportType
 from ..domain.validation import check_invariants
 from .strategies import (BaseTransformationStrategy, TypeATransformationStrategy,
@@ -22,14 +23,6 @@ def default_strategies() -> dict[ReportType, BaseTransformationStrategy]:
         ReportType.TYPE_A: TypeATransformationStrategy(),
         ReportType.TYPE_B: TypeBTransformationStrategy(),
     }
-
-
-class EmptyReportError(ValueError):
-    """Nothing to vary: the report has no attendance rows."""
-
-
-class InvariantViolation(RuntimeError):
-    pass
 
 
 class TransformationService:
@@ -57,6 +50,6 @@ class TransformationService:
         strategy = self.strategy_for(report)
         try:
             expected = strategy.build_summary(report.rows, report.summary)
-        except ValueError as exc:
+        except TransformationError as exc:
             return [str(exc)]
         return check_invariants(report, strategy.rules.limits, expected)

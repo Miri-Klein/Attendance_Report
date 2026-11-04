@@ -4,6 +4,7 @@ Adding type C = write TypeCParser and add one line here.
 """
 from __future__ import annotations
 
+from ..domain.exceptions import InternalError
 from ..domain.models import ReportType
 from .base_parser import BaseParser
 from .type_a_parser import TypeAParser
@@ -19,4 +20,4 @@ def get_parser(report_type: ReportType) -> BaseParser:
     try:
         return _PARSERS[report_type]()
     except KeyError:
-        raise ValueError(f"no parser registered for {report_type}") from None
+        raise InternalError(f"no parser registered for {report_type}") from None

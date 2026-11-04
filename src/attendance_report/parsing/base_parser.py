@@ -1,8 +1,9 @@
 """Template Method: the parsing *flow* is identical for every report type.
 
     find the header (1-2 lines) -> locate columns -> put the words of every
-    line below it into columns -> let the subclass turn those lines into
-    rows (+ the totals line) -> read the summary -> read metadata -> report
+    line below it into columns (on later pages: skip the repeated header) ->
+    let the subclass turn those lines into rows (+ the totals line) -> read
+    the summary -> read metadata -> report
 
 Subclasses fill in only what differs: which columns exist, how lines become
 dated rows, how one row is read, where the summary is, what the metadata is.
@@ -16,6 +17,7 @@ from datetime import date, timedelta
 from difflib import SequenceMatcher
 
 from ..domain.calendar_he import weekday_index
+from ..domain.exceptions import ParseError
 from ..domain.models import AttendanceReport, AttendanceRow, ReportSummary, ReportType
 from .cleaning import has_hebrew, parse_date
 from .raw import Line, RawDocument, RawWord
@@ -42,15 +44,15 @@ class BodyLine:
     def y(self) -> float:
         return self.line.y_center
 
+    @property
+    def page(self) -> int:
+        return self.line.page
+
 
 @dataclass(frozen=True)
 class Column:
     key: str
     label: str               # one distinctive header word
-
-
-class ParseError(ValueError):
-    pass
 
 
 class BaseParser(ABC):
@@ -61,10 +63,14 @@ class BaseParser(ABC):
     # ---- the shared flow ---------------------------------------------------
     def parse(self, doc: RawDocument) -> AttendanceReport:
         lines = doc.lines()
-        first, last = self._find_header(lines)
+        span = self._header_span(lines)
+        if span is None:
+            raise ParseError(f"{self.report_type.value}: table header not found")
+        first, last = span
         anchors = self._locate_columns(_merge(lines[first:last + 1]))
         above = lines[:first]
-        body = [BodyLine(line, self._to_cells(line, anchors)) for line in lines[last + 1:]]
+        body = [BodyLine(line, self._to_cells(line, anchors))
+                for line in self._table_lines(lines[last + 1:], lines[first].page)]
 
         warnings: list[str] = []
         rows, summary_cells, below = self._build_rows(body, warnings)
@@ -77,7 +83,20 @@ class BaseParser(ABC):
         return AttendanceReport(self.report_type, header_lines, tuple(rows), summary,
                                 name, emp_id, doc.source_name, tuple(warnings))
 
-    def _find_header(self, lines: list[Line]) -> tuple[int, int]:
+    def _table_lines(self, lines: list[Line], header_page: int) -> list[Line]:
+        """Lines of the table. A report that continues on another page repeats
+        the column titles there; drop everything up to that repeated header."""
+        out: list[Line] = []
+        for page in sorted({line.page for line in lines}):
+            on_page = [line for line in lines if line.page == page]
+            if page != header_page:
+                span = self._header_span(on_page)
+                if span is not None:
+                    on_page = on_page[span[1] + 1:]
+            out += on_page
+        return out
+
+    def _header_span(self, lines: list[Line]) -> tuple[int, int] | None:
         """Header = the first line (or pair of lines: type B prints two-line
         column titles) where enough column labels are recognised."""
         need = max(2, round(self.min_header_share * len(self.columns)))
@@ -94,7 +113,7 @@ class BaseParser(ABC):
             if i + 1 < len(lines) and hits(lines[i:i + 1]) and hits(lines[i + 1:i + 2]) \
                     and hits(lines[i:i + 2]) >= need:
                 return i, i + 1
-        raise ParseError(f"{self.report_type.value}: table header not found")
+        return None
 
     def _locate_columns(self, header: Line) -> dict[str, float]:
         """Column key -> x centre of its header word.
@@ -205,8 +224,17 @@ def _similar(a: str, b: str) -> bool:
 
 
 def numbers_in(line: Line) -> list[str]:
-    """Tokens of a line that look like amounts (used for key/value boxes)."""
-    return [w.text for w in line.words if any(ch.isdigit() for ch in w.text) and not w.text.endswith("%")]
+    """Tokens of a line that look like amounts (used for key/value boxes).
+
+    In a box the value sits right against the border, which OCR glues on as
+    '|' ('|0'). Inside the table '|' may be a misread 1 ('|5:00'), but at the
+    edge of a box value it is always the border, so it is stripped here."""
+    out = []
+    for w in line.words:
+        text = w.text.strip("|[]")
+        if any(ch.isdigit() for ch in text) and not text.endswith("%"):
+            out.append(text)
+    return out
 
 
 def hebrew_words(text: str, min_len: int = 2) -> list[str]:

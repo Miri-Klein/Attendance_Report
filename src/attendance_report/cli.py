@@ -4,8 +4,10 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+import traceback
 from pathlib import Path
 
+from .domain.exceptions import AttendanceReportError
 from .generation.html_renderer import HtmlRenderer
 from .generation.pdf_renderer import PdfRenderer
 from .parsing.extraction import ExtractionMode
@@ -30,20 +32,28 @@ def main(argv: list[str] | None = None) -> int:
                         format="%(levelname)s %(name)s: %(message)s")
     renderers = ([] if args.html_only else [PdfRenderer()]) + ([] if args.pdf_only else [HtmlRenderer()])
 
-    failures = 0
+    failures = bugs = 0
     for path in args.inputs:
         try:
             result = run(path, args.output, renderers, args.seed, ExtractionMode(args.extract))
-        except Exception as exc:  # report and continue with the next file
+        except AttendanceReportError as exc:     # a problem in this input file: say so, go on
             failures += 1
             print(f"✗ {path.name}: {exc}", file=sys.stderr)
+            continue
+        except Exception as exc:                 # a bug in this program: say so clearly
+            bugs += 1
+            print(f"✗ {path.name}: INTERNAL ERROR (a bug, not a problem with the file): "
+                  f"{type(exc).__name__}: {exc}", file=sys.stderr)
+            if args.verbose:
+                traceback.print_exc()
             continue
         print(f"✓ {path.name}: {result.variant.report_type.value}, "
               f"{len(result.variant.rows)} rows -> " + ", ".join(str(o) for o in result.outputs))
         if result.source_issues:
             print(f"  note: the input itself breaks {len(result.source_issues)} rule(s), "
                   f"e.g. {result.source_issues[0]}")
-    return 1 if failures else 0
+    # exit codes: 0 all good, 1 some input files could not be processed, 2 a bug
+    return 2 if bugs else 1 if failures else 0
 
 
 if __name__ == "__main__":

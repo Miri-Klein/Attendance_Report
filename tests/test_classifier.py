@@ -1,16 +1,25 @@
 import pytest
 
+from attendance_report.domain.exceptions import AttendanceReportError, UnknownReportType
 from attendance_report.domain.models import ReportType
-from attendance_report.parsing.classifier import UnknownReportType, classify
-
-from conftest import TYPE_A, TYPE_B, needs_ocr
-from attendance_report.parsing.extraction import extract
+from attendance_report.parsing.classifier import classify
+from fixture_io import load_words
 
 
-@needs_ocr
-@pytest.mark.parametrize("path, expected", [(TYPE_A, ReportType.TYPE_A), (TYPE_B, ReportType.TYPE_B)])
-def test_real_scans_are_classified(path, expected):
-    assert classify(extract(path).text) == expected
+@pytest.mark.parametrize("name, expected", [
+    ("type_a_synthetic", ReportType.TYPE_A),
+    ("type_b_synthetic", ReportType.TYPE_B),
+])
+def test_synthetic_reports_are_classified(name, expected):
+    assert classify(load_words(name).text) == expected
+
+
+@pytest.mark.parametrize("key, expected", [
+    ("a1", ReportType.TYPE_A), ("a2", ReportType.TYPE_A),
+    ("b1", ReportType.TYPE_B), ("b2", ReportType.TYPE_B),
+])
+def test_all_four_real_scans_are_classified(scan, key, expected):
+    assert scan(key).report_type == expected
 
 
 def test_one_garbled_keyword_does_not_flip_the_type():
@@ -22,6 +31,8 @@ def test_type_b_signals():
     assert classify('שם העובד: סה"כ ימי עבודה לחודש מחיר לשעה סה"כ לתשלום') == ReportType.TYPE_B
 
 
-def test_unrelated_text_is_rejected():
-    with pytest.raises(UnknownReportType):
+def test_unrelated_text_is_rejected_clearly():
+    with pytest.raises(UnknownReportType) as err:
         classify("חשבונית מס קבלה סכום")
+    assert "cannot tell the report type" in str(err.value)
+    assert isinstance(err.value, AttendanceReportError)

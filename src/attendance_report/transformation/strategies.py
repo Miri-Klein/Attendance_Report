@@ -13,15 +13,12 @@ from dataclasses import replace
 from decimal import Decimal
 from enum import Enum
 
+from ..domain.exceptions import MissingRateError
 from ..domain.models import (AttendanceRow, HourBuckets, ReportSummary, compute_pay_summary,
                              compute_summary, minutes_to_hours, minutes_to_time, time_to_minutes)
 from .rules import TYPE_A_RULES, TYPE_B_RULES, TransformationRules
 
 ZERO = Decimal("0.00")
-
-
-class MissingRateError(ValueError):
-    pass
 
 
 class BaseTransformationStrategy(ABC):
